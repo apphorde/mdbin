@@ -6,6 +6,6 @@
     "markdown-it": "^11.0.0"
   },
   "scripts": {
-    "ci": "echo true"
+    "ci": "npm i"
   }
 }
