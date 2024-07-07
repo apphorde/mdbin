@@ -117,10 +117,10 @@ function notFound(response) {
 }
 
 function readStream(stream) {
-  return new Promise((r, s) => {
+  return new Promise((resolve, reject) => {
     const all = [];
     stream.on("data", (c) => all.push(c));
     stream.on("end", () => resolve(Buffer.concat(all).toString("utf8")));
-    stream.on("error", s);
+    stream.on("error", reject);
   });
 }
