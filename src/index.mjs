@@ -25,7 +25,9 @@ createServer(async (request, response) => {
       break;
 
     case url.pathname.startsWith("/g/"):
-      const [org, repo, path = "README.md"] = url.pathname.replace("/g/", "").split('/');
+      const [org, repo, path = "README.md"] = url.pathname
+        .replace("/g/", "")
+        .split("/");
       const remote = await fetch(
         `https://raw.githubusercontent.com/${org}/${repo}/main/${path}`
       );
@@ -45,12 +47,7 @@ createServer(async (request, response) => {
       if (body.trim()) {
         const uid = randomUUID();
         await storePage(uid, body);
-        response.writeHead(201, {
-          location: "/p/" + uid,
-          "content-type": "application/json",
-        });
-
-        response.end(`{"id": "${uid}"}`);
+        sendPageResponse(response, uid, request.headers["x-forwarded-for"]);
         return;
       }
 
@@ -60,17 +57,12 @@ createServer(async (request, response) => {
       break;
 
     case request.method === "PUT" && url.pathname.startsWith("/p/"):
+      const uid = url.pathname.replace("/p/", "");
       const body = await readStream(request);
 
       if (body.trim()) {
-        const uid = randomUUID();
         await storePage(uid, body);
-        response.writeHead(201, {
-          location: "/p/" + uid,
-          "content-type": "application/json",
-        });
-
-        response.end(`{"id": "${uid}"}`);
+        sendPageResponse(response, uid, request.headers["x-forwarded-for"]);
         return;
       }
 
@@ -84,6 +76,15 @@ createServer(async (request, response) => {
       break;
   }
 });
+
+function sendPageResponse(response, uid, domain) {
+  response.writeHead(201, {
+    location: "/p/" + uid,
+    "content-type": "application/json",
+  });
+  const pageUrl = new URL("/p/" + uid, "https://" + domain);
+  response.end(JSON.stringify({ id: uid, url: pageUrl.toString() }));
+}
 
 async function renderPage(response, content) {
   response.writeHead(200, {
