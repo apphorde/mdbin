@@ -1,0 +1,2 @@
+# mdbin
+Markdown pastebin
