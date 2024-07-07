@@ -25,7 +25,7 @@ createServer(async (request, response) => {
       break;
 
     case url.pathname.startsWith("/g/"):
-      const [org, repo, path = "README.md"] = url.pathname.replace("/g/", "");
+      const [org, repo, path = "README.md"] = url.pathname.replace("/g/", "").split('/');
       const remote = await fetch(
         `https://raw.githubusercontent.com/${org}/${repo}/main/${path}`
       );
