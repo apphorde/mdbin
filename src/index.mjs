@@ -20,8 +20,8 @@ createServer(async (request, response) => {
         return;
       }
 
-      const entry = await store.json();
-      renderPage(response, entry.content);
+      const json = await store.json();
+      renderPage(response, json.content);
       break;
 
     case url.pathname.startsWith("/g/"):
