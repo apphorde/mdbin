@@ -1,0 +1,8 @@
+{
+  "main": "./src/index.mjs",
+  "type": "module",
+  "dependencies": {
+    "@cloud-cli/http": "1.0.0",
+    "markdown-it": "^11.0.0"
+  }
+}
