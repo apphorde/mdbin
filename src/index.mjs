@@ -1,80 +1,77 @@
 import createServer from "@cloud-cli/http";
-import { randomUUID } from "node:crypto";
 import MarkdownIt from "markdown-it";
+import { randomUUID } from "node:crypto";
 
 const { STORE_URL, HOMEPAGE_ID } = process.env;
 
 createServer(async (request, response) => {
   const url = new URL(request.url);
-  switch (true) {
-    case url.pathname === "/":
-      response.writeHead(302, { Location: "/p/" + HOMEPAGE_ID });
-      break;
-
-    case url.pathname.startsWith("/p/"):
-      const id = url.pathname.replace("/p/", "");
-      const store = await fetch(STORE_URL + "/p/" + id);
-
-      if (store.statusCode !== 200) {
-        notFound(response);
-        return;
-      }
-
-      const json = await store.json();
-      renderPage(response, json.content);
-      break;
-
-    case url.pathname.startsWith("/g/"):
-      const [org, repo, path = "README.md"] = url.pathname
-        .replace("/g/", "")
-        .split("/");
-      const remote = await fetch(
-        `https://raw.githubusercontent.com/${org}/${repo}/main/${path}`
-      );
-
-      if (remote.statusCode !== 200) {
-        notFound(response);
-        return;
-      }
-
-      const entry = await remote.text();
-      renderPage(response, entry);
-      break;
-
-    case request.method === "POST" && url.pathname === "/p":
-      const body = await readStream(request);
-
-      if (body.trim()) {
-        const uid = randomUUID();
-        await storePage(uid, body);
-        sendPageResponse(response, uid, request.headers["x-forwarded-for"]);
-        return;
-      }
-
-      response
-        .writeHead(400)
-        .end("Bad request. Provide markdown text as input.");
-      break;
-
-    case request.method === "PUT" && url.pathname.startsWith("/p/"):
-      const uid = url.pathname.replace("/p/", "");
-      const body = await readStream(request);
-
-      if (body.trim()) {
-        await storePage(uid, body);
-        sendPageResponse(response, uid, request.headers["x-forwarded-for"]);
-        return;
-      }
-
-      response
-        .writeHead(400)
-        .end("Bad request. Provide markdown text as input.");
-      break;
-
-    default:
-      notFound(response);
-      break;
+  if (url.pathname === "/") {
+    response.writeHead(302, { Location: "/p/" + HOMEPAGE_ID });
+    return;
   }
+
+  if (url.pathname.startsWith("/p/")) {
+    const id = url.pathname.replace("/p/", "");
+    const store = await fetch(STORE_URL + "/p/" + id);
+
+    if (store.statusCode !== 200) {
+      notFound(response);
+      return;
+    }
+
+    const json = await store.json();
+    renderPage(response, json.content);
+  }
+
+  if (url.pathname.startsWith("/g/")) {
+    const [org, repo, path = "README.md"] = url.pathname
+      .replace("/g/", "")
+      .split("/");
+
+    const remote = await fetch(
+      `https://raw.githubusercontent.com/${org}/${repo}/main/${path}`
+    );
+
+    if (remote.statusCode !== 200) {
+      notFound(response);
+      return;
+    }
+
+    const entry = await remote.text();
+    renderPage(response, entry);
+    return;
+  }
+
+  if (request.method === "POST" && url.pathname === "/p") {
+    const body = await readStream(request);
+
+    if (body.trim()) {
+      const uid = randomUUID();
+      await storePage(uid, body);
+      sendPageResponse(response, uid, request.headers["x-forwarded-for"]);
+      return;
+    }
+
+    response.writeHead(400).end("Bad request. Provide markdown text as input.");
+    return;
+  }
+
+  if (request.method === "PUT" && url.pathname.startsWith("/p/")) {
+    const uid = url.pathname.replace("/p/", "");
+    const body = await readStream(request);
+
+    if (body.trim()) {
+      await storePage(uid, body);
+      sendPageResponse(response, uid, request.headers["x-forwarded-for"]);
+      return;
+    }
+
+    response.writeHead(400).end("Bad request. Provide markdown text as input.");
+    return;
+  }
+
+  notFound(response);
 });
 
 function sendPageResponse(response, uid, domain) {
