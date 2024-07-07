@@ -5,7 +5,8 @@ import { randomUUID } from "node:crypto";
 const { STORE_URL, HOMEPAGE_ID } = process.env;
 
 createServer(async (request, response) => {
-  const url = new URL(request.url);
+  const url = new URL(request.url, "http://localhost");
+
   if (url.pathname === "/") {
     response.writeHead(302, { Location: "/p/" + HOMEPAGE_ID });
     return;
@@ -22,6 +23,7 @@ createServer(async (request, response) => {
 
     const json = await store.json();
     renderPage(response, json.content);
+    return;
   }
 
   if (url.pathname.startsWith("/g/")) {
