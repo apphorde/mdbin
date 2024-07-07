@@ -16,7 +16,7 @@ createServer(async (request, response) => {
     const id = url.pathname.replace("/p/", "");
     const store = await fetch(STORE_URL + "/p/" + id);
 
-    if (store.statusCode !== 200) {
+    if (store.status !== 200) {
       notFound(response);
       return;
     }
@@ -35,7 +35,7 @@ createServer(async (request, response) => {
       `https://raw.githubusercontent.com/${org}/${repo}/main/${path}`
     );
 
-    if (remote.statusCode !== 200) {
+    if (remote.status !== 200) {
       notFound(response);
       return;
     }
@@ -50,7 +50,7 @@ createServer(async (request, response) => {
 
     if (body.trim()) {
       const uid = randomUUID();
-      await storePage(uid, body);
+      await storePage(uid, body.trim());
       sendPageResponse(response, uid, request.headers["x-forwarded-for"]);
       return;
     }
@@ -64,7 +64,7 @@ createServer(async (request, response) => {
     const body = await readStream(request);
 
     if (body.trim()) {
-      await storePage(uid, body);
+      await storePage(uid, body.trim());
       sendPageResponse(response, uid, request.headers["x-forwarded-for"]);
       return;
     }
@@ -104,11 +104,11 @@ async function renderPage(response, content) {
   response.end(markdown.render(content));
 }
 
-async function storePage(id, content) {
+async function storePage(uid, content) {
   await fetch(STORE_URL + "/p/" + uid, {
     method: "PUT",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ content: body.trim() }),
+    body: JSON.stringify({ content }),
   });
 }
 
