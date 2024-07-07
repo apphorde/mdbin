@@ -3,7 +3,7 @@
   "type": "module",
   "dependencies": {
     "@cloud-cli/http": "1.0.0",
-    "markdown-it": "^11.0.0"
+    "markdown-it": "^14.0.0"
   },
   "scripts": {
     "ci": "npm i"
