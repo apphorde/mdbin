@@ -9,6 +9,7 @@ createServer(async (request, response) => {
 
   if (url.pathname === "/") {
     response.writeHead(302, { Location: "/p/" + HOMEPAGE_ID });
+    response.end();
     return;
   }
 
