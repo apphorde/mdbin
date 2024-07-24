@@ -92,17 +92,23 @@ async function renderPage(response, content) {
     "cache-control": "public, max-age=86400",
   });
 
-  response.write(`
-    <link
-      rel="stylesheet"
-      href="https://cdnjs.cloudflare.com/ajax/libs/modern-normalize/2.0.0/modern-normalize.min.css"
-      integrity="sha512-4xo8blKMVCiXpTaLzQSLSw3KFOVPWhm/TRtuPVc4WG6kUgjH6J03IBuG7JZPkcWMxJ5huwaBpOpnwYElP/m6wg=="
-      crossorigin="anonymous"
-      referrerpolicy="no-referrer"
-    />`);
+  const [meta, text] = parseMetadata(content);
+
+  response.write(`<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8" />
+${meta.title ? '<title>' + meta.title + '</title>' : ''}
+<meta http-equiv="X-UA-Compatible" content="IE=edge" />
+<meta name="viewport" content="width=device-width,initial-scale=1.0" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css" />
+<link rel="stylesheet" href="https://unpkg.com/@tailwindcss/typography@0.5.0/dist/typography.min.css" />
+</head><body><article class="max-w-3xl mx-auto prose lg:prose-xl dark:prose-dark">`);
 
   const markdown = new MarkdownIt("default", {});
-  response.end(markdown.render(content));
+
+  response.write(markdown.render(content));
+  response.end('</article></body></html>');
 }
 
 async function storePage(uid, content) {
@@ -124,4 +130,26 @@ function readStream(stream) {
     stream.on("end", () => resolve(Buffer.concat(all).toString("utf8")));
     stream.on("error", reject);
   });
+}
+
+function parseMetadata(text) {
+  text = text.trim();
+
+  if (text.startsWith('---')) {
+    text = text.slice(3);
+  }
+
+  if (text.indexOf('---') === -1) {
+    return [{}, text];
+  }
+
+  const [meta, remainingText] = text.split('---');
+  const fm = Object.fromEntries(
+    meta.split('\n').filter(s => s.trim()).map(line => {
+      const [left, right] = line.trim().split(':');
+      return [left.trim(), right.trim()];
+    })
+  );
+
+  return [fm, (remainingText || '').trim()];
 }
