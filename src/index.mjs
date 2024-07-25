@@ -28,12 +28,12 @@ createServer(async (request, response) => {
   }
 
   if (url.pathname.startsWith("/g/")) {
-    const [org, repo, path = "README.md"] = url.pathname
+    const [org, repo, ref = 'main', path = "README.md"] = url.pathname
       .replace("/g/", "")
       .split("/");
 
     const remote = await fetch(
-      `https://raw.githubusercontent.com/${org}/${repo}/main/${path}`
+      `https://raw.githubusercontent.com/${org}/${repo}/${ref}/${path}`
     );
 
     if (remote.status !== 200) {
