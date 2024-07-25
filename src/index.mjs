@@ -103,7 +103,7 @@ ${meta.title ? '<title>' + meta.title + '</title>' : ''}
 <meta name="viewport" content="width=device-width,initial-scale=1.0" />
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css" />
 <link rel="stylesheet" href="https://unpkg.com/@tailwindcss/typography@0.5.0/dist/typography.min.css" />
-</head><body><article class="max-w-3xl mx-auto prose lg:prose-xl dark:prose-dark">`);
+</head><body class="p-8"><article class="max-w-3xl mx-auto prose lg:prose-xl dark:prose-dark">`);
 
   const markdown = new MarkdownIt("default", {});
 
