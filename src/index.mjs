@@ -16,9 +16,14 @@ createServer(async (request, response) => {
   if (url.pathname.startsWith("/p/")) {
     const id = url.pathname.replace("/p/", "");
 
+    if (!id) {
+      notFound(response);
+      return;
+    }
+
     if (request.method === "DELETE") {
-      await fetch(STORE_URL + "/p/" + id, { method: 'DELETE' });
-      response.end('OK');
+      await fetch(STORE_URL + "/p/" + id, { method: "DELETE" });
+      response.end("OK");
       return;
     }
 
@@ -35,7 +40,7 @@ createServer(async (request, response) => {
   }
 
   if (url.pathname.startsWith("/g/")) {
-    const [org, repo, ref = 'main', path = "README.md"] = url.pathname
+    const [org, repo, ref = "main", path = "README.md"] = url.pathname
       .replace("/g/", "")
       .split("/");
 
@@ -105,7 +110,7 @@ async function renderPage(response, content) {
 <html>
 <head>
 <meta charset="utf-8" />
-${meta.title ? '<title>' + meta.title + '</title>' : ''}
+${meta.title ? "<title>" + meta.title + "</title>" : ""}
 <meta http-equiv="X-UA-Compatible" content="IE=edge" />
 <meta name="viewport" content="width=device-width,initial-scale=1.0" />
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css" />
@@ -115,7 +120,7 @@ ${meta.title ? '<title>' + meta.title + '</title>' : ''}
   const markdown = new MarkdownIt("default", {});
 
   response.write(markdown.render(content));
-  response.end('</article></body></html>');
+  response.end("</article></body></html>");
 }
 
 async function storePage(uid, content) {
@@ -142,21 +147,24 @@ function readStream(stream) {
 function parseMetadata(text) {
   text = text.trim();
 
-  if (text.startsWith('---')) {
+  if (text.startsWith("---")) {
     text = text.slice(3);
   }
 
-  if (text.indexOf('---') === -1) {
+  if (text.indexOf("---") === -1) {
     return [{}, text];
   }
 
-  const [meta, remainingText] = text.split('---');
+  const [meta, remainingText] = text.split("---");
   const fm = Object.fromEntries(
-    meta.split('\n').filter(s => s.trim()).map(line => {
-      const [left, right] = line.trim().split(':');
-        return [String(left).trim(), String(right || '').trim()];
-    })
+    meta
+      .split("\n")
+      .filter((s) => s.trim())
+      .map((line) => {
+        const [left, right] = line.trim().split(":");
+        return [String(left).trim(), String(right || "").trim()];
+      })
   );
 
-  return [fm, (remainingText || '').trim()];
+  return [fm, (remainingText || "").trim()];
 }
