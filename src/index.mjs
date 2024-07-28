@@ -15,6 +15,13 @@ createServer(async (request, response) => {
 
   if (url.pathname.startsWith("/p/")) {
     const id = url.pathname.replace("/p/", "");
+
+    if (request.method === "DELETE") {
+      await fetch(STORE_URL + "/p/" + id, { method: 'DELETE' });
+      response.end('OK');
+      return;
+    }
+
     const store = await fetch(STORE_URL + "/p/" + id);
 
     if (store.status !== 200) {
@@ -147,7 +154,7 @@ function parseMetadata(text) {
   const fm = Object.fromEntries(
     meta.split('\n').filter(s => s.trim()).map(line => {
       const [left, right] = line.trim().split(':');
-      return [left.trim(), right.trim()];
+        return [String(left).trim(), String(right || '').trim()];
     })
   );
 
