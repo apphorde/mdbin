@@ -64,7 +64,7 @@ createServer(async (request, response) => {
     if (body.trim()) {
       const uid = randomUUID();
       await storePage(uid, body.trim());
-      sendPageResponse(response, uid, request.headers["x-forwarded-for"]);
+      sendPageResponse(response, uid, request.headers["x-forwarded-host"]);
       return;
     }
 
@@ -78,7 +78,7 @@ createServer(async (request, response) => {
 
     if (body.trim()) {
       await storePage(uid, body.trim());
-      sendPageResponse(response, uid, request.headers["x-forwarded-for"]);
+      sendPageResponse(response, uid, request.headers["x-forwarded-host"]);
       return;
     }
 
