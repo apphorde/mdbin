@@ -13,6 +13,26 @@ createServer(async (request, response) => {
     return;
   }
 
+  if (url.pathname.startsWith("/md/")) {
+    const id = url.pathname.replace("/md/", "");
+
+    if (!id) {
+      notFound(response);
+      return;
+    }
+
+    const store = await fetch(STORE_URL + "/p/" + id);
+
+    if (store.status !== 200) {
+      notFound(response);
+      return;
+    }
+
+    const json = await store.json();
+    response.writeHead(200, { 'content-type': 'text/plain' }).end(json.content);
+    return;
+  }
+
   if (url.pathname.startsWith("/p/")) {
     const id = url.pathname.replace("/p/", "");
 
