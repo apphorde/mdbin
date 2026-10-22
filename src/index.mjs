@@ -3,6 +3,7 @@ import MarkdownIt from "markdown-it";
 import { randomUUID } from "node:crypto";
 
 const { STORE_URL, HOMEPAGE_ID } = process.env;
+const MAX_PAYLOAD_BYTES = 500 * 1024;
 
 createServer(async (request, response) => {
   const url = new URL(request.url, "http://localhost");
@@ -10,6 +11,39 @@ createServer(async (request, response) => {
   if (url.pathname === "/") {
     response.writeHead(302, { Location: "/p/" + HOMEPAGE_ID });
     response.end();
+    return;
+  }
+
+  if (request.method === "GET" && url.pathname === "/new") {
+    response.writeHead(200, { "content-type": "text/html; charset=utf-8" });
+    response.end(`<!DOCTYPE html>
+<html><head><meta charset="utf-8" /><meta name="viewport" content="width=device-width,initial-scale=1.0" />
+<title>New page</title><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" /></head>
+<body class="h-screen"><form id="editor" class="h-full"><button class="fixed top-4 right-4 px-5 py-2 bg-blue-600 text-white rounded" type="submit">Submit</button>
+<textarea id="content" aria-label="Markdown content" required class="w-full h-full p-6 pt-20 resize-none focus:outline-none" placeholder="Write markdown..."></textarea>
+<p id="error" role="alert" class="fixed bottom-4 left-4 text-red-600"></p></form>
+<script>
+document.querySelector("#editor").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const content = document.querySelector("#content").value;
+  const error = document.querySelector("#error");
+  if (!content.trim()) {
+    error.textContent = "Please enter some markdown.";
+    return;
+  }
+  if (new TextEncoder().encode(content).length > ${MAX_PAYLOAD_BYTES}) {
+    error.textContent = "Content must be no larger than 500 KB.";
+    return;
+  }
+  error.textContent = "";
+  try {
+    const response = await fetch("/p", { method: "POST", headers: { "content-type": "text/plain" }, body: content });
+    const result = await response.json();
+    if (!response.ok) throw new Error("Unable to create page.");
+    window.location.assign(result.url);
+  } catch (e) { error.textContent = e.message || "Unable to create page."; }
+});
+</script></body></html>`);
     return;
   }
 
@@ -29,7 +63,7 @@ createServer(async (request, response) => {
     }
 
     const json = await store.json();
-    response.writeHead(200, { 'content-type': 'text/plain' }).end(json.content);
+    response.writeHead(200, { "content-type": "text/plain" }).end(json.content);
     return;
   }
 
@@ -60,13 +94,9 @@ createServer(async (request, response) => {
   }
 
   if (url.pathname.startsWith("/g/")) {
-    const [org, repo, ref = "main", path = "README.md"] = url.pathname
-      .replace("/g/", "")
-      .split("/");
+    const [org, repo, ref = "main", path = "README.md"] = url.pathname.replace("/g/", "").split("/");
 
-    const remote = await fetch(
-      `https://raw.githubusercontent.com/${org}/${repo}/${ref}/${path}`
-    );
+    const remote = await fetch(`https://raw.githubusercontent.com/${org}/${repo}/${ref}/${path}`);
 
     if (remote.status !== 200) {
       notFound(response);
@@ -80,6 +110,11 @@ createServer(async (request, response) => {
 
   if (request.method === "POST" && url.pathname === "/p") {
     const body = await readStream(request);
+
+    if (body === null) {
+      response.writeHead(413).end("Payload too large");
+      return;
+    }
 
     if (body.trim()) {
       const uid = randomUUID();
@@ -95,6 +130,11 @@ createServer(async (request, response) => {
   if (request.method === "PUT" && url.pathname.startsWith("/p/")) {
     const uid = url.pathname.replace("/p/", "");
     const body = await readStream(request);
+
+    if (body === null) {
+      response.writeHead(413).end("Payload too large");
+      return;
+    }
 
     if (body.trim()) {
       await storePage(uid, body.trim());
@@ -158,7 +198,18 @@ function notFound(response) {
 function readStream(stream) {
   return new Promise((resolve, reject) => {
     const all = [];
-    stream.on("data", (c) => all.push(c));
+    let size = 0;
+    stream.on("data", (c) => {
+      size += c.length;
+      if (size > MAX_PAYLOAD_BYTES) {
+        all.length = 0;
+        stream.removeAllListeners("data");
+        stream.resume();
+        resolve(null);
+        return;
+      }
+      all.push(c);
+    });
     stream.on("end", () => resolve(Buffer.concat(all).toString("utf8")));
     stream.on("error", reject);
   });
@@ -183,7 +234,7 @@ function parseMetadata(text) {
       .map((line) => {
         const [left, right] = line.trim().split(":");
         return [String(left).trim(), String(right || "").trim()];
-      })
+      }),
   );
 
   return [fm, (remainingText || "").trim()];
