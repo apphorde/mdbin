@@ -1,25 +1,33 @@
 # mdbin
 
-Markdown pastebin
+Markdown pastebin.
+
+The browser editor is available at `GET /new`. The root path redirects to the configured homepage at `/api/v1/p/:id`.
 
 ## API
 
-### `GET /p/:uid`
+The OpenAPI 3.0.3 specification is available as JSON at `GET /api`. All application API endpoints are versioned under `/api/v1`.
 
-Render a page
+### `GET /api/v1/p/:id`
 
-### `GET /g/:org/:repo`
+Render a saved page as HTML. Returns `404 Not found` when the page does not exist.
 
-Render a file stored in GitHub org/repo
+### `GET /api/v1/md/:id`
 
-### `POST /p`
+Return the saved page's Markdown as `text/plain`. Returns `404 Not found` when the page does not exist.
 
-Create a new page
+### `POST /api/v1/p`
 
-### `PUT /p/:uid`
+Create a page by sending non-empty Markdown as a raw `text/plain` request body (maximum 512000 bytes). Returns `201` with JSON `{ "id": "...", "url": "https://.../api/v1/p/..." }` and a `Location` header. Empty input returns `400`; oversized input returns `413`.
 
-Update page
+### `PUT /api/v1/p/:id`
 
-### `DELETE /p/:uid`
+Create or replace a page using the same raw `text/plain` body format and limits as `POST`. Returns `201` with the same JSON response shape; empty input returns `400`, and oversized input returns `413`.
 
-Remove a page
+### `DELETE /api/v1/p/:id`
+
+Delete a page. Returns `200` with the plain-text body `OK`.
+
+### `GET /api/v1/g/:org/:repo[/:ref[/:path]]`
+
+Render a GitHub file as HTML. The ref defaults to `main` and the file path defaults to `README.md`.

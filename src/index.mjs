@@ -4,13 +4,207 @@ import { randomUUID } from "node:crypto";
 
 const { STORE_URL, HOMEPAGE_ID } = process.env;
 const MAX_PAYLOAD_BYTES = 500 * 1024;
+const openApi = {
+  openapi: "3.0.3",
+  info: { title: "mdbin API", version: "1.0.0", description: "Markdown page storage and rendering API." },
+  paths: {
+    "/api": {
+      get: {
+        summary: "Get the OpenAPI specification",
+        responses: {
+          200: {
+            description: "OpenAPI specification",
+            content: { "application/json": { schema: { type: "object" } } },
+          },
+        },
+      },
+    },
+    "/api/v1/p": {
+      post: {
+        summary: "Create a page",
+        requestBody: {
+          required: true,
+          content: {
+            "text/plain": {
+              schema: {
+                type: "string",
+                "x-maxBytes": 512000,
+                description: "Non-empty UTF-8 Markdown payload; maximum 512000 bytes.",
+              },
+            },
+          },
+        },
+        responses: {
+          201: {
+            description: "Page created",
+            headers: { Location: { schema: { type: "string" }, description: "Versioned page path." } },
+            content: { "application/json": { schema: { $ref: "#/components/schemas/PageResponse" } } },
+          },
+          400: {
+            description: "Empty or whitespace-only payload",
+            content: {
+              "text/plain": { schema: { type: "string", example: "Bad request. Provide markdown text as input." } },
+            },
+          },
+          413: {
+            description: "Payload exceeds 512000 bytes",
+            content: { "text/plain": { schema: { type: "string", example: "Payload too large" } } },
+          },
+        },
+      },
+    },
+    "/api/v1/p/{id}": {
+      parameters: [{ $ref: "#/components/parameters/id" }],
+      get: {
+        summary: "Render a page",
+        responses: {
+          200: { description: "Rendered HTML", content: { "text/html": { schema: { type: "string" } } } },
+          404: { $ref: "#/components/responses/NotFound" },
+          405: { $ref: "#/components/responses/MethodNotAllowed" },
+        },
+      },
+      put: {
+        summary: "Create or replace a page",
+        requestBody: {
+          required: true,
+          content: {
+            "text/plain": {
+              schema: {
+                type: "string",
+                "x-maxBytes": 512000,
+                description: "Non-empty UTF-8 Markdown payload; maximum 512000 bytes.",
+              },
+            },
+          },
+        },
+        responses: {
+          201: {
+            description: "Page stored",
+            headers: { Location: { schema: { type: "string" }, description: "Versioned page path." } },
+            content: { "application/json": { schema: { $ref: "#/components/schemas/PageResponse" } } },
+          },
+          400: {
+            description: "Empty or whitespace-only payload",
+            content: {
+              "text/plain": { schema: { type: "string", example: "Bad request. Provide markdown text as input." } },
+            },
+          },
+          413: {
+            description: "Payload exceeds 512000 bytes",
+            content: { "text/plain": { schema: { type: "string", example: "Payload too large" } } },
+          },
+        },
+      },
+      delete: {
+        summary: "Delete a page",
+        responses: {
+          200: {
+            description: "Page deleted",
+            content: { "text/plain": { schema: { type: "string", example: "OK" } } },
+          },
+        },
+      },
+    },
+    "/api/v1/md/{id}": {
+      parameters: [{ $ref: "#/components/parameters/id" }],
+      get: {
+        summary: "Get page Markdown",
+        responses: {
+          200: { description: "Raw Markdown", content: { "text/plain": { schema: { type: "string" } } } },
+          404: { $ref: "#/components/responses/NotFound" },
+          405: { $ref: "#/components/responses/MethodNotAllowed" },
+        },
+      },
+    },
+    "/api/v1/g/{org}/{repo}": {
+      parameters: [
+        { name: "org", in: "path", required: true, schema: { type: "string" } },
+        { name: "repo", in: "path", required: true, schema: { type: "string" } },
+      ],
+      get: {
+        summary: "Render a GitHub file",
+        description: "Fetches README.md from the main branch of the repository.",
+        responses: {
+          200: { description: "Rendered HTML", content: { "text/html": { schema: { type: "string" } } } },
+          404: { $ref: "#/components/responses/NotFound" },
+          405: { $ref: "#/components/responses/MethodNotAllowed" },
+        },
+      },
+    },
+    "/api/v1/g/{org}/{repo}/{ref}": {
+      parameters: [
+        { name: "org", in: "path", required: true, schema: { type: "string" } },
+        { name: "repo", in: "path", required: true, schema: { type: "string" } },
+        { name: "ref", in: "path", required: true, schema: { type: "string" } },
+      ],
+      get: {
+        summary: "Render a GitHub file",
+        description: "Fetches README.md from the specified branch or ref.",
+        responses: {
+          200: { description: "Rendered HTML", content: { "text/html": { schema: { type: "string" } } } },
+          404: { $ref: "#/components/responses/NotFound" },
+          405: { $ref: "#/components/responses/MethodNotAllowed" },
+        },
+      },
+    },
+    "/api/v1/g/{org}/{repo}/{ref}/{path}": {
+      parameters: [
+        { name: "org", in: "path", required: true, schema: { type: "string" } },
+        { name: "repo", in: "path", required: true, schema: { type: "string" } },
+        { name: "ref", in: "path", required: true, schema: { type: "string" } },
+        {
+          name: "path",
+          in: "path",
+          required: true,
+          schema: { type: "string" },
+          description: "File path within the repository; remaining slash-separated URL segments are included.",
+        },
+      ],
+      get: {
+        summary: "Render a GitHub file",
+        description: "Fetches the specified file from raw.githubusercontent.com.",
+        responses: {
+          200: { description: "Rendered HTML", content: { "text/html": { schema: { type: "string" } } } },
+          404: { $ref: "#/components/responses/NotFound" },
+          405: { $ref: "#/components/responses/MethodNotAllowed" },
+        },
+      },
+    },
+  },
+  components: {
+    parameters: { id: { name: "id", in: "path", required: true, schema: { type: "string" } } },
+    responses: {
+      NotFound: {
+        description: "Page or remote file not found",
+        content: { "text/plain": { schema: { type: "string", example: "Not found" } } },
+      },
+      MethodNotAllowed: {
+        description: "HTTP method is not supported for this endpoint",
+        content: { "text/plain": { schema: { type: "string", example: "Method not allowed" } } },
+      },
+    },
+    schemas: {
+      PageResponse: {
+        type: "object",
+        required: ["id", "url"],
+        properties: { id: { type: "string", format: "uuid" }, url: { type: "string", format: "uri" } },
+      },
+    },
+  },
+};
 
 createServer(async (request, response) => {
   const url = new URL(request.url, "http://localhost");
 
   if (url.pathname === "/") {
-    response.writeHead(302, { Location: "/p/" + HOMEPAGE_ID });
+    response.writeHead(302, { Location: "/api/v1/p/" + HOMEPAGE_ID });
     response.end();
+    return;
+  }
+
+  if (request.method === "GET" && url.pathname === "/api") {
+    response.writeHead(200, { "content-type": "application/json; charset=utf-8" });
+    response.end(JSON.stringify(openApi));
     return;
   }
 
@@ -37,7 +231,7 @@ document.querySelector("#editor").addEventListener("submit", async (event) => {
   }
   error.textContent = "";
   try {
-    const response = await fetch("/p", { method: "POST", headers: { "content-type": "text/plain" }, body: content });
+    const response = await fetch("/api/v1/p", { method: "POST", headers: { "content-type": "text/plain" }, body: content });
     const result = await response.json();
     if (!response.ok) throw new Error("Unable to create page.");
     window.location.assign(result.url);
@@ -47,8 +241,13 @@ document.querySelector("#editor").addEventListener("submit", async (event) => {
     return;
   }
 
-  if (url.pathname.startsWith("/md/")) {
-    const id = url.pathname.replace("/md/", "");
+  if (url.pathname.startsWith("/api/v1/md/")) {
+    if (request.method !== "GET") {
+      response.writeHead(405).end("Method not allowed");
+      return;
+    }
+
+    const id = url.pathname.replace("/api/v1/md/", "");
 
     if (!id) {
       notFound(response);
@@ -67,8 +266,8 @@ document.querySelector("#editor").addEventListener("submit", async (event) => {
     return;
   }
 
-  if (url.pathname.startsWith("/p/")) {
-    const id = url.pathname.replace("/p/", "");
+  if (url.pathname.startsWith("/api/v1/p/")) {
+    const id = url.pathname.replace("/api/v1/p/", "");
 
     if (!id) {
       notFound(response);
@@ -78,6 +277,29 @@ document.querySelector("#editor").addEventListener("submit", async (event) => {
     if (request.method === "DELETE") {
       await fetch(STORE_URL + "/p/" + id, { method: "DELETE" });
       response.end("OK");
+      return;
+    }
+
+    if (request.method === "PUT") {
+      const body = await readStream(request);
+
+      if (body === null) {
+        response.writeHead(413).end("Payload too large");
+        return;
+      }
+
+      if (body.trim()) {
+        await storePage(id, body.trim());
+        sendPageResponse(response, id, request.headers["x-forwarded-host"]);
+        return;
+      }
+
+      response.writeHead(400).end("Bad request. Provide markdown text as input.");
+      return;
+    }
+
+    if (request.method !== "GET") {
+      response.writeHead(405).end("Method not allowed");
       return;
     }
 
@@ -93,8 +315,14 @@ document.querySelector("#editor").addEventListener("submit", async (event) => {
     return;
   }
 
-  if (url.pathname.startsWith("/g/")) {
-    const [org, repo, ref = "main", path = "README.md"] = url.pathname.replace("/g/", "").split("/");
+  if (url.pathname.startsWith("/api/v1/g/")) {
+    if (request.method !== "GET") {
+      response.writeHead(405).end("Method not allowed");
+      return;
+    }
+
+    const [org, repo, ref = "main", ...pathParts] = url.pathname.replace("/api/v1/g/", "").split("/");
+    const path = pathParts.length ? pathParts.join("/") : "README.md";
 
     const remote = await fetch(`https://raw.githubusercontent.com/${org}/${repo}/${ref}/${path}`);
 
@@ -108,7 +336,7 @@ document.querySelector("#editor").addEventListener("submit", async (event) => {
     return;
   }
 
-  if (request.method === "POST" && url.pathname === "/p") {
+  if (request.method === "POST" && url.pathname === "/api/v1/p") {
     const body = await readStream(request);
 
     if (body === null) {
@@ -127,34 +355,15 @@ document.querySelector("#editor").addEventListener("submit", async (event) => {
     return;
   }
 
-  if (request.method === "PUT" && url.pathname.startsWith("/p/")) {
-    const uid = url.pathname.replace("/p/", "");
-    const body = await readStream(request);
-
-    if (body === null) {
-      response.writeHead(413).end("Payload too large");
-      return;
-    }
-
-    if (body.trim()) {
-      await storePage(uid, body.trim());
-      sendPageResponse(response, uid, request.headers["x-forwarded-host"]);
-      return;
-    }
-
-    response.writeHead(400).end("Bad request. Provide markdown text as input.");
-    return;
-  }
-
   notFound(response);
 });
 
 function sendPageResponse(response, uid, domain) {
   response.writeHead(201, {
-    location: "/p/" + uid,
+    location: "/api/v1/p/" + uid,
     "content-type": "application/json",
   });
-  const pageUrl = new URL("/p/" + uid, "https://" + domain);
+  const pageUrl = new URL("/api/v1/p/" + uid, "https://" + domain);
   response.end(JSON.stringify({ id: uid, url: pageUrl.toString() }));
 }
 
@@ -164,7 +373,7 @@ async function renderPage(response, content) {
     "cache-control": "public, max-age=86400",
   });
 
-  const [meta, text] = parseMetadata(content);
+  const [meta] = parseMetadata(content);
 
   response.write(`<!DOCTYPE html>
 <html>
